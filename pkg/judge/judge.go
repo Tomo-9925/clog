@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -33,24 +34,29 @@ func (j *Judge) IsContainerProc(pid int, ppid int) (bool, string, error) {
 	if err := j.cache.add(pid, ppid); err != nil {
 		return false, "", util.ErrorWrapFunc(err)
 	}
-	logrus.Debug("cache add pid: %d", pid)
+	logrus.Debug("cache add pid:", pid)
 	return j.cache[pid].isContainer, j.cache[pid].cid, nil
 }
 
 func (j *Judge) isContainerProcFromCgroup(pid, ppid int) (bool, string, error) {
+	logrus.Debug("FromCgroup pid:", pid)
 	pidnamespace, err := ps.GetPidNameSpace(proc, pid)
 	if err == ps.PidNameSpaceNotFoundError {
 		j.cache.addManually(pid, false, "", ppid)
+		logrus.Debug("PidNameSpaceNotFoundError")
 		return false, "", nil
 	} else if err != nil {
 		return false, "", util.ErrorWrapFunc(err)
 	}
+	logrus.Debug("PidNameSpace:", pidnamespace)
 	dir, file := filepath.Split(pidnamespace)
-	if dir != cgroupContainerPrefix {
+	if !strings.HasPrefix(dir, cgroupContainerPrefix) {
+		logrus.Debug("Dont have container prefix")
 		j.cache.addManually(pid, false, "", ppid)
 		return false, "", nil
 	}
 	j.cache.addManually(pid, true, file, ppid)
+	logrus.Debugf("Pid %d is DockerProcess", pid)
 	return true, file, nil
 }
 

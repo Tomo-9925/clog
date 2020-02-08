@@ -1,6 +1,7 @@
 package logread
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ type AuditLog struct {
 	Exe         string
 	Commandline []string
 	Cwd         string
+	Time        string
 	addFlag     uint
 }
 
@@ -64,6 +66,12 @@ func (a *AuditApi) parseAuditLog(logline string) error {
 	tags := strings.Split(logline, " ")
 	switch strings.Split(tags[0], "=")[1] {
 	case "SYSCALL":
+		logrus.Debug("SYSCALL logline:", logline)
+		logTime, err := parseLogTime(logline)
+		if err != nil {
+			return util.ErrorWrapFunc(err)
+		}
+		a.nowAuditLog.Time = fmt.Sprintf("%s", logTime)
 		for _, tag := range tags {
 			switch tagval := strings.Split(tag, "="); tagval[0] {
 			case "pid":
@@ -72,6 +80,7 @@ func (a *AuditApi) parseAuditLog(logline string) error {
 					return util.ErrorWrapFunc(err)
 				}
 				a.nowAuditLog.Pid = pid
+				// logrus.Debug("pid:", a.nowAuditLog.Pid)
 			case "ppid":
 				ppid, err := strconv.Atoi(tagval[1])
 				if err != nil {
@@ -106,6 +115,7 @@ func (a *AuditApi) parseAuditLog(logline string) error {
 				a.nowAuditLog.Tty = strings.Trim(tagval[1], "\"")
 			case "exe":
 				a.nowAuditLog.Exe = strings.Trim(tagval[1], "\"")
+				// logrus.Debug("exe:", a.nowAuditLog.Exe)
 				// case "comm":
 				// 	a.nowAuditLog.Comm = tagval[1]
 			}
@@ -163,16 +173,10 @@ func (a *AuditApi) ReadSince(auditLogPath string, nowTime time.Time) {
 				logrus.Errorf("PASS: LOGLINE: %v", logline)
 				break
 			}
-			times := strings.Split(strings.Split(strings.Split(strings.Split(strings.Split(logline, " ")[1], "=")[1], "(")[1], ":")[0], ".")
-			sec, err := strconv.Atoi(times[0])
+			logTime, err := parseLogTime(logline)
 			if err != nil {
 				a.auditErrCh <- util.ErrorWrapFunc(err)
 			}
-			nsec, err := strconv.Atoi(times[1])
-			if err != nil {
-				a.auditErrCh <- util.ErrorWrapFunc(err)
-			}
-			logTime := time.Unix(int64(sec), int64(nsec))
 			if !logTime.After(nowTime) {
 				continue
 			}
@@ -184,4 +188,20 @@ func (a *AuditApi) ReadSince(auditLogPath string, nowTime time.Time) {
 			a.auditErrCh <- errors.Wrap(err, "read logfile error")
 		}
 	}
+}
+
+func parseLogTime(line string) (time.Time, error) {
+	times := strings.Split(strings.Split(strings.Split(strings.Split(strings.Split(line, " ")[1], "=")[1], "(")[1], ":")[0], ".")
+	sec, err := strconv.Atoi(times[0])
+	if err != nil {
+		return time.Time{}, util.ErrorWrapFunc(err)
+	}
+	nsec := 0
+	if len(times) == 2 {
+		nsec, err = strconv.Atoi(times[1])
+		if err != nil {
+			return time.Time{}, util.ErrorWrapFunc(err)
+		}
+	}
+	return time.Unix(int64(sec), int64(nsec)), nil
 }

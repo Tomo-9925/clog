@@ -17,7 +17,7 @@ var auditLogPath = "/var/log/audit/audit.log"
 var debugContainerPid = -1
 
 func init() {
-	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetOutput(os.Stdout)
 }
 
@@ -88,11 +88,13 @@ func main() {
 		case err := <-runErrCh:
 			logrus.Errorf("runnotify error: %v", err)
 		case auditlog := <-auditCh:
-
+			logrus.Debug("AuditLogCh EXE:", auditlog.Exe)
+			logrus.Debug("AuditLogCh PPid:", auditlog.PPid)
 			ok, cid, err := japi.IsContainerProc(auditlog.Pid, auditlog.PPid)
 			if err != nil {
 				logrus.Debug("cant check isContainerProc: %v", err)
 			}
+			logrus.Debug("isContainerProc:", ok)
 			// logrus.Infof("pid %d, ppid %d, commandline %v isContainerProc: %v", auditlog.Pid, auditlog.PPid, auditlog.Commandline, ok)
 			if ok {
 				if err := writeAuditLog(cid, auditlog); err != nil {

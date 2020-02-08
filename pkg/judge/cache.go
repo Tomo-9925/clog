@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-// audit はプロセス起動のタイミングじゃないと順序がおかしくなる？
-
 type containerInfo struct {
 	isChecked   bool
 	isContainer bool
