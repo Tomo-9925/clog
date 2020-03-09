@@ -1,7 +1,8 @@
 package logread
 
 import (
-	"bufio"
+	"bytes"
+	"io"
 	"os"
 	"time"
 
@@ -54,22 +55,67 @@ func (r *Reader) read() error {
 	if err != nil {
 		return util.ErrorWrapFunc(err)
 	}
+	defer f.Close()
+
 	if _, err := f.Seek(r.offset, 0); err != nil {
 		return util.ErrorWrapFunc(err)
 	}
+	// count := 0
+	var ret int64
+	for {
 
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		r.outCh <- scanner.Text()
+		buf := make([]byte, 1024*8)
+		n, readErr := f.Read(buf)
+		if readErr == io.EOF {
+			break
+		} else if readErr != nil {
+			return util.ErrorWrapFunc(err)
+		}
+		if n == 0 {
+			break
+		}
+
+		bufParts := bytes.Split(buf, []byte("\n"))
+		ldx := len(bufParts) - 1
+		// logrus.Debug("ldx:", ldx)
+		// bufParts[ldx]は bufPartsの末尾が\nなら空、そうでなければ欠損データ
+
+		// logrus.Debug("RAW_buf:\n", buf)
+		// logrus.Debug("RAW:\n", string(buf))
+		for i := 0; i < ldx; i++ {
+			// if len(bufParts[i]) == 0 {
+			// 	logrus.Debugf("break!! i:%d,", i)
+			// 	break
+			// }
+			r.outCh <- string(bufParts[i])
+		}
+
+		if len(bufParts[ldx]) != 0 && bufParts[ldx][len(bufParts[ldx])-1] == 0 {
+			for i := 0; i < len(bufParts[ldx]); i++ {
+				if bufParts[ldx][i] == 0 {
+					ret = int64(i)
+					break
+				}
+			}
+			// break
+		} else {
+			ret = int64(len(bufParts[ldx]))
+		}
+		// r.offset -= ret
+		r.offset, err = f.Seek(-ret, 1)
+		if err != nil {
+			return util.ErrorWrapFunc(err)
+		}
+		// logrus.Debug("len last Part:", len(bufParts[ldx]))
+		// if count == 100 {
+		// 	panic("stop")
+		// }
+		// count++
+		// if readErr == io.EOF {
+		// 	logrus.Debug("EOF")
+		// 	break
+		// }
 	}
-
-	// set EOF offset
-	ret, err := f.Seek(0, 2)
-	if err != nil {
-		return util.ErrorWrapFunc(err)
-	}
-	r.offset = ret
-
 	return nil
 }
 

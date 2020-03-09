@@ -18,7 +18,7 @@ type CAuditClog struct {
 	Event logread.AuditLog
 }
 
-func writeInfos(cid string, iinfo internalinfo.InternalInfo, minfo types.ContainerJSON) error {
+func writeInfos(iinfo internalinfo.InternalInfo, minfo types.ContainerJSON) error {
 	f, err := os.OpenFile(metainfoPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 	if err != nil {
 		return util.ErrorWrapFunc(err)

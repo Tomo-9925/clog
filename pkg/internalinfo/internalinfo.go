@@ -2,6 +2,7 @@ package internalinfo
 
 import (
 	"github.com/xapima/conps/pkg/docker"
+	"github.com/xapima/conps/pkg/ps"
 	"github.com/xapima/conps/pkg/util"
 )
 
@@ -10,8 +11,9 @@ type ContainerInternalApi struct {
 }
 
 type InternalInfo struct {
-	CidPasswdMap *docker.CidPasswdMap
-	CidGroupMap  *docker.CidGroupMap
+	Cid       string
+	PasswdMap ps.PasswdMap
+	GroupMap  ps.GroupMap
 }
 
 func NewContainerInternalApid() (*ContainerInternalApi, error) {
@@ -25,20 +27,20 @@ func NewContainerInternalApid() (*ContainerInternalApi, error) {
 }
 
 func (c *ContainerInternalApi) GetInternalInfo(cid string) (InternalInfo, error) {
-	ii := InternalInfo{}
+	ii := InternalInfo{Cid: cid}
 	if err := c.dapi.SetCid(cid); err != nil {
 		return InternalInfo{}, util.ErrorWrapFunc(err)
 	}
-	cidPasswdMap, err := c.dapi.GetCidPasswdMap(cid)
+	passwdMap, err := c.dapi.GetCidPasswdMap(cid)
 	if err != nil {
 		return InternalInfo{}, util.ErrorWrapFunc(err)
 	}
-	ii.CidPasswdMap = cidPasswdMap
+	ii.PasswdMap = passwdMap
 
-	cidGroupMap, err := c.dapi.GetCidGroupMap(cid)
+	groupMap, err := c.dapi.GetCidGroupMap(cid)
 	if err != nil {
 		return InternalInfo{}, util.ErrorWrapFunc(err)
 	}
-	ii.CidGroupMap = cidGroupMap
+	ii.GroupMap = groupMap
 	return ii, nil
 }

@@ -65,15 +65,15 @@ func main() {
 			}
 			japi.SetContainerProc(pid, true, cid, ppid)
 			japi.SetContainerProc(ppid, true, cid, pppid)
-			logrus.Debug("init set pid %d, ppid %d", pid, ppid)
-			logrus.Debug("containerInfo of  pid %d: %v", pid, japi.GetContainerInfo(pid))
+			// logrus.Debug("init set pid %d, ppid %d", pid, ppid)
+			// logrus.Debug("containerInfo of  pid %d: %v", pid, japi.GetContainerInfo(pid))
 			debugContainerPid = pid
-
+			logrus.Debug("GetInternalInfo cid:", cid)
 			iinfo, err := iapi.GetInternalInfo(cid)
 			if err != nil {
 				logrus.Errorf("cant get internal info: pid: %v, %v", cid, err)
 			}
-			if err := writeInfos(cid, iinfo, minfo); err != nil {
+			if err := writeInfos(iinfo, minfo); err != nil {
 				logrus.Errorf("cant write  Infos: %v", err)
 			}
 		case cid := <-killCh:
@@ -88,8 +88,8 @@ func main() {
 		case err := <-runErrCh:
 			logrus.Errorf("runnotify error: %v", err)
 		case auditlog := <-auditCh:
-			logrus.Debug("AuditLogCh EXE:", auditlog.Exe)
-			logrus.Debug("AuditLogCh PPid:", auditlog.PPid)
+			// logrus.Debug("AuditLogCh EXE:", auditlog.Exe)
+			// logrus.Debug("AuditLogCh PPid:", auditlog.PPid)
 			ok, cid, err := japi.IsContainerProc(auditlog.Pid, auditlog.PPid)
 			if err != nil {
 				logrus.Debug("cant check isContainerProc: %v", err)

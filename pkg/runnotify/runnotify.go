@@ -1,10 +1,11 @@
 package runnotify
 
 import (
+	"path/filepath"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/xapima/conps/pkg/util"
-	"path/filepath"
 )
 
 type RunnotifyApi struct {
@@ -39,7 +40,8 @@ func (rapi *RunnotifyApi) Start() {
 	defer close(rapi.runCh)
 	defer close(rapi.killCh)
 	defer close(rapi.errCh)
-
+	lastRun := ""
+	lastKill := ""
 	for {
 		select {
 		case event := <-rapi.Fs.Events:
@@ -47,10 +49,22 @@ func (rapi *RunnotifyApi) Start() {
 			// case event.Op&fsnotify.Write == fsnotify.Write:
 			// 	log.Printf("Write:  %s: %s", event.Op, event.Name)
 			case event.Op&fsnotify.Create == fsnotify.Create:
-				rapi.runCh <- filepath.Base(event.Name)
+				cid := filepath.Base(event.Name)
+				if lastRun == cid {
+					continue
+				}
+				rapi.runCh <- cid
+				lastRun = cid
+
 				// log.Printf("Create: %s: %s", event.Op, event.Name)
 			case event.Op&fsnotify.Remove == fsnotify.Remove:
-				rapi.killCh <- filepath.Base(event.Name)
+				cid := filepath.Base(event.Name)
+				if cid == lastKill {
+					continue
+				}
+				rapi.killCh <- cid
+				lastKill = cid
+
 				// log.Printf("Remove: %s: %s", event.Op, event.Name)
 				// case event.Op&fsnotify.Rename == fsnotify.Rename:
 				// 	log.Printf("Rename: %s: %s", event.Op, event.Name)

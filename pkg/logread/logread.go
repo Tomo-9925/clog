@@ -45,28 +45,29 @@ func NewAuditApi(auditCh chan AuditLog, errCh chan error) *AuditApi {
 	return &a
 }
 
-func (a *AuditApi) Read(auditLogPath string) {
-	defer close(a.auditCh)
-	defer close(a.auditErrCh)
+// func (a *AuditApi) Read(auditLogPath string) {
+// 	defer close(a.auditCh)
+// 	defer close(a.auditErrCh)
 
-	go a.reader.Read(auditLogPath)
-	for {
-		select {
-		case logline := <-a.logCh:
-			if err := a.parseAuditLog(logline); err != nil {
-				a.auditErrCh <- errors.Wrap(err, "audit log parse error")
-			}
-		case err := <-a.logErrCh:
-			a.auditErrCh <- errors.Wrap(err, "read logfile error")
-		}
-	}
-}
+// 	go a.reader.Read(auditLogPath)
+// 	for {
+// 		select {
+// 		case logline := <-a.logCh:
+// 			logrus.Debug("LOGLINE: %s", logline)
+// 			if err := a.parseAuditLog(logline); err != nil {
+// 				a.auditErrCh <- errors.Wrap(err, "audit log parse error")
+// 			}
+// 		case err := <-a.logErrCh:
+// 			a.auditErrCh <- errors.Wrap(err, "read logfile error")
+// 		}
+// 	}
+// }
 
 func (a *AuditApi) parseAuditLog(logline string) error {
 	tags := strings.Split(logline, " ")
 	switch strings.Split(tags[0], "=")[1] {
 	case "SYSCALL":
-		logrus.Debug("SYSCALL logline:", logline)
+		// logrus.Debug("SYSCALL logline:", logline)
 		logTime, err := parseLogTime(logline)
 		if err != nil {
 			return util.ErrorWrapFunc(err)
@@ -140,14 +141,14 @@ func (a *AuditApi) parseAuditLog(logline string) error {
 		a.nowAuditLog.addFlag |= AddCwdFlag
 	}
 
-	if a.isAuditLogPaesed() {
+	if a.isAuditLogParsed() {
 		a.auditCh <- *a.nowAuditLog
 		a.nowAuditLogFlush()
 	}
 	return nil
 }
 
-func (a *AuditApi) isAuditLogPaesed() bool {
+func (a *AuditApi) isAuditLogParsed() bool {
 	if a.nowAuditLog.addFlag == AddSyscallFlag|AddCwdFlag|AddExecFlag {
 		return true
 	}
@@ -166,12 +167,17 @@ func (a *AuditApi) ReadSince(auditLogPath string, nowTime time.Time) {
 	for {
 		select {
 		case logline := <-a.logCh:
+			// logrus.Debugf("LOGLINE: %s", logline)
+			if len(logline) == 0 {
+				panic("stop!!")
+			}
 			// logrus.Infof("logline: %v", logline)
 			// ココでエラーが出ることが有る。これは、  0755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL のような、ログの一部分のみを読み取ってしまっている。
 			// ToDo : 原因の調査と、対策。
 			if !strings.Contains(logline, "msg=audit") {
 				logrus.Errorf("PASS: LOGLINE: %v", logline)
-				break
+				panic("PASS")
+				// break
 			}
 			logTime, err := parseLogTime(logline)
 			if err != nil {
@@ -191,6 +197,7 @@ func (a *AuditApi) ReadSince(auditLogPath string, nowTime time.Time) {
 }
 
 func parseLogTime(line string) (time.Time, error) {
+	// logrus.Debug("time line:", line)
 	times := strings.Split(strings.Split(strings.Split(strings.Split(strings.Split(line, " ")[1], "=")[1], "(")[1], ":")[0], ".")
 	sec, err := strconv.Atoi(times[0])
 	if err != nil {
